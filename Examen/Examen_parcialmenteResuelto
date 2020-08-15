@@ -1,0 +1,171 @@
+import numpy as np
+from numpy import genfromtxt
+import matplotlib.pyplot as plt
+
+class Data(object):
+
+    def __init__(self, dataset):
+        self.dataset = dataset
+
+    def split(self, percentage): # 0.8
+        X = self.dataset[:,0][::,None]
+        y = self.dataset[:,1][::,None]
+        permuted_idxs = np.random.permutation(X.shape[0])
+        train_idxs = permuted_idxs[0:int(percentage * X.shape[0])]
+        test_idxs = permuted_idxs[int(percentage * X.shape[0]): X.shape[0]]
+        X_train = X[train_idxs]
+        X_test = X[test_idxs]
+        y_train = y[train_idxs]
+        y_test = y[test_idxs]
+        return X_train, X_test, y_train, y_test
+
+
+class BaseModel(object):
+
+    def __init__(self):
+        self.model = None
+
+    def fit(self, X, Y):
+        return NotImplemented
+
+    def predict(self, X):
+        return NotImplemented
+
+class LinearRegression(BaseModel):
+
+    def fit(self, X, y):
+        aux =  np.linalg.inv(np.matmul(X.T,X))
+        aux2 = np.matmul(aux,X.T)
+        W = np.matmul(aux2,y)
+        self.model = W
+
+    def predict(self, X):
+        return np.matmul(X,self.model)
+
+
+
+class Metric(object):
+    def __call__(self, target, prediction):
+        return NotImplemented
+
+
+class MSE(Metric):
+    def __call__(self, target, prediction):
+        return np.square(np.subtract(target,prediction)).mean()
+
+def k_folds(X_train, y_train, k=5):
+    l_regression = LinearRegression()
+    error = MSE()
+    n,m = np.shape(Xtrain)
+    chunk_size = int(n / k)
+    mse_list = []
+    errormin = 10000000 #Se inicializa la variable para encontrar el mejor modelo en base a MSE
+    for i in range(0, n, chunk_size):
+        end = i + chunk_size if i + chunk_size <= n else n
+        new_X_valid = X_train[i: end]
+        new_y_valid = y_train[i: end]
+        new_X_train = np.concatenate([X_train[: i], X_train[end:]])
+        new_y_train = np.concatenate([y_train[: i], y_train[end:]])
+
+        l_regression.fit(new_X_train, new_y_train)
+        prediction = l_regression.predict(new_X_valid)
+        mse_list.append(error(new_y_valid, prediction))
+        W = np.array(l_regression.model)
+        if (error(new_y_valid, prediction)<errormin):  #Se realiza la comparacion de MSE
+            Woptimo = W     #Se actualiza el valor optimo del modelo
+            errormin = error(new_y_valid, prediction)
+
+    return Woptimo,np.min(mse_list)
+
+
+def Gradiente_MiniBatch(X,Y,alpha=0.01,epochs=100):
+    b = 16 #Se divide en 16 batches
+    n,m = np.shape(X)
+    w = np.random.randn(m).reshape(m, 1) #Se puede cambiar
+    batch = int(n/b)
+    for i in range(epochs):
+        idx = np.random.permutation(X.shape[0])
+        X = X[idx]
+        Y = Y[idx]
+        for i in range(0,n,batch):
+            aux1 = (Y[i:i+batch-1] - np.matmul(X[i:i+batch-1], w))
+            grad = -2 * np.sum(aux1,axis=0) / n
+            w = w - alpha * grad
+        #print(w)
+    return w
+#Ejercicio 2
+my_data = genfromtxt('clase_8_dataset.csv', delimiter=',')
+Datos = Data(my_data)
+Xtrain,Xtest,Ytrain,Ytest = Datos.split(0.8)
+print("Datos separados en 80%-20%")
+plt.scatter(my_data[:,0], my_data[:,1], color='b')
+plt.title('Dataset')
+plt.xlabel('Entrada')
+plt.ylabel('Salida')
+plt.show()
+
+#Ejercicio 3.a)
+modelo1, ecm1 = k_folds(Xtrain,Ytrain,k=5)  #La funcion devuelve el mejor modelo obtenido y su MSE de validacion
+print("-----Ejercicio 3.a)-----")
+print("El mejor modelo obtenido esta dado con W =",modelo1)
+print("Y tiene un error cuadratico medio de validacion de:",ecm1)
+
+#Ejercicio 3.b)
+Xtrain2 = np.vstack((np.power(Xtrain, 2).T, Xtrain.T, np.ones(len(Xtrain)))).T
+modelo2, ecm2= k_folds(Xtrain2,Ytrain,k=5)
+print("-----Ejercicio 3.b)-----")
+print("El mejor modelo obtenido para n=2 esta dado con W =",modelo2.T)
+print("Y tiene un error cuadratico medio de validacion de:",ecm2)
+
+Xtrain3 = np.vstack((np.power(Xtrain,3).T,np.power(Xtrain, 2).T, Xtrain.T, np.ones(len(Xtrain)))).T
+modelo3, ecm3= k_folds(Xtrain3,Ytrain,k=5)
+print("-----Ejercicio 3.b)-----")
+print("El mejor modelo obtenido para n=3 esta dado con W =",modelo3.T)
+print("Y tiene un error cuadratico medio de validacion de:",ecm3)
+
+Xtrain4 = np.vstack((np.power(Xtrain,4).T,np.power(Xtrain,3).T,np.power(Xtrain, 2).T, Xtrain.T, np.ones(len(Xtrain)))).T
+modelo4, ecm4= k_folds(Xtrain4,Ytrain,k=5)
+print("-----Ejercicio 3.b)-----")
+print("El mejor modelo obtenido para n=3 esta dado con W =",modelo4.T)
+print("Y tiene un error cuadratico medio de validacion de:",ecm4)
+
+Xtest2 = np.vstack((np.power(Xtest,2).T, Xtest.T, np.ones(len(Xtest)))).T
+Xtest3 = np.vstack((np.power(Xtest,3).T,np.power(Xtest, 2).T, Xtest.T, np.ones(len(Xtest)))).T
+Xtest4 = np.vstack((np.power(Xtest,4).T,np.power(Xtest,3).T,np.power(Xtest, 2).T, Xtest.T, np.ones(len(Xtest)))).T
+ECM = MSE()
+#Se calculan las estimaciones de Y con los distintos modelos y se calcula el MSE de cada uno
+Y1est = modelo1*Xtest
+Y2est = np.matmul(Xtest2,modelo2)
+Y3est = np.matmul(Xtest3,modelo3)
+Y4est = np.matmul(Xtest4,modelo4)
+error_mod1 = ECM(Y1est,Ytest)
+error_mod2 = ECM(Y2est,Ytest)
+error_mod3 = ECM(Y3est,Ytest)
+error_mod4 = ECM(Y4est,Ytest)
+
+#Se eligen los mejores modelos
+Errores = np.array([error_mod1,error_mod2,error_mod3,error_mod4])
+minimo = np.argmin(Errores)
+if minimo==0:
+    Xminibatch = Xtrain
+    Y_hat = Y1est
+elif minimo==1:
+    Y_hat = Y2est
+    Xminibatch = Xtrain2
+elif minimo==2:
+    Y_hat = Y3est
+    Xminibatch = Xtrain3
+elif minimo==3:
+    Y_hat = Y4est
+    Xminibatch = Xtrain4
+
+plt.scatter(Xtest, Ytest, color='b')
+plt.plot(Xtest, Y_hat,'rs')
+plt.title('Dataset test comparado con el Y estimado')
+plt.legend(['Y estimada', 'Dataset Test'])
+plt.xlabel('Entrada')
+plt.ylabel('Salida')
+plt.show()
+
+
+# W = Gradiente_MiniBatch(Xtrain,Ytrain,alpha=0.01,epochs=100)
